@@ -68,7 +68,7 @@ class Bottleneck(nn.Module):
 
 class Seg1(nn.Module):
     def __init__(self,
-                 block: Type[Union[Bottleneck]] = Bottleneck,
+                 block: Optional[Type[Union[Bottleneck]]] = None,
                  layers: Optional[List[int]] = None,
                  num_classes: int = 1000,
                  zero_init_residual: bool = False,
@@ -77,6 +77,8 @@ class Seg1(nn.Module):
                  replace_stride_with_dilation: Optional[List[bool]] = None,
                  norm_layer: Optional[Callable[..., nn.Module]] = None) -> None:
         super(Seg1, self).__init__()
+        if block is None:
+            block = Bottleneck
         if layers is None:
             layers = [3, 4, 23, 3]
         if norm_layer is None:
@@ -95,7 +97,7 @@ class Seg1(nn.Module):
         self.groups = groups
         self.base_width = width_per_group
 
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=1, padding=3, bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -159,29 +161,18 @@ class Seg1(nn.Module):
 
     def _forward_impl(self, x: Tensor) -> Tensor:
         x = self.conv1(x)
-        print(x.shape)
         x = self.bn1(x)
-        print(x.shape)
         x = self.relu(x)
-        print(x.shape)
         x = self.maxpool(x)
-        print(x.shape)
 
         x = self.layer1(x)
-        print(x.shape)
         x = self.layer2(x)
-        print(x.shape)
         x = self.layer3(x)
-        print(x.shape)
         x = self.layer4(x)
-        print(x.shape)
 
         x = self.avgpool(x)
-        print(x.shape)
         x = torch.flatten(x, 1)
-        print(x.shape)
         x = self.fc(x)
-        print(x.shape)
 
         return x
 

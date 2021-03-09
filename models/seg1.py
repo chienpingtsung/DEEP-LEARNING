@@ -3,6 +3,8 @@ from typing import Optional, Callable, Type, Union, List
 import torch
 from torch import nn, Tensor
 
+from models.unet import double_conv
+
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
     """3x3 convolution with padding"""
@@ -114,8 +116,17 @@ class Seg1(nn.Module):
         # stage conv5
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
                                        dilate=replace_stride_with_dilation[2])
+        # expansive path
+        self.up1 = nn.ConvTranspose2d(512 * block.expansion, 256 * block.expansion, kernel_size=2, stride=2)
+        self.expa1 = double_conv(512 * block.expansion, 256 * block.expansion)
+        self.up2 = nn.ConvTranspose2d(256 * block.expansion, 128 * block.expansion, kernel_size=2, stride=2)
+        self.expa2 = double_conv(256 * block.expansion, 128 * block.expansion)
+        self.up3 = nn.ConvTranspose2d(128 * block.expansion, 64 * block.expansion, kernel_size=2, stride=2)
+        self.expa3 = double_conv(128 * block.expansion, 64 * block.expansion)
+        self.up4 = nn.ConvTranspose2d(64 * block.expansion, 32 * block.expansion, kernel_size=2, stride=2)
+        self.expa4 = double_conv(32 * block.expansion + 64, 32 * block.expansion)
         # output
-        pass
+        self.output = nn.Conv2d(32 * block.expansion, out_channels, kernel_size=1)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -167,20 +178,27 @@ class Seg1(nn.Module):
         # stage conv1
         x = self.conv1(x)
         x = self.bn1(x)
-        x = self.relu(x)
+        x1 = self.relu(x)
         # stage conv2
-        x = self.maxpool(x)
-        x = self.layer1(x)
+        x = self.maxpool(x1)
+        x2 = self.layer1(x)
         # stage conv3
-        x = self.layer2(x)
+        x3 = self.layer2(x2)
         # stage conv4
-        x = self.layer3(x)
+        x4 = self.layer3(x3)
         # stage conv5
-        x = self.layer4(x)
+        x = self.layer4(x4)
+        # expansive path
+        x = self.up1(x)
+        x = self.expa1(torch.cat((x4, x), dim=1))
+        x = self.up2(x)
+        x = self.expa2(torch.cat((x3, x), dim=1))
+        x = self.up3(x)
+        x = self.expa3(torch.cat((x2, x), dim=1))
+        x = self.up4(x)
+        x = self.expa4(torch.cat((x1, x), dim=1))
         # output
-        pass
-
-        return x
+        return self.output(x)
 
     def forward(self, x: Tensor) -> Tensor:
         return self._forward_impl(x)

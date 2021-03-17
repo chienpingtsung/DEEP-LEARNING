@@ -7,4 +7,3 @@ class ToTensor:
         for pic in args:
             rst.append(functional.to_tensor(pic))
         return rst
-    

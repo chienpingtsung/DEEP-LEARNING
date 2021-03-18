@@ -22,7 +22,7 @@ def test(model, dataloader, device, save_to: Path = None):
             pred = torch.squeeze(output) > 0.5
 
             label = label.numpy()
-            pred = pred.numpy()
+            pred = pred.cpu().numpy()
             for la, pr in zip(label, pred):
                 p_TP, p_TPFP, r_TP, r_TPFN = calc_confusion_matrix(la, pr, tolerance=2)
                 prec_TP += p_TP

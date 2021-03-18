@@ -21,7 +21,7 @@ def test(model, dataloader, device, save_to: Path = None):
             output = torch.sigmoid(output)
             pred = torch.squeeze(output) > 0.5
 
-            label = label.numpy().astype(bool)
+            label = torch.squeeze(label).numpy().astype(bool)
             pred = pred.cpu().numpy()
             for la, pr in zip(label, pred):
                 p_TP, p_TPFP, r_TP, r_TPFN = calc_confusion_matrix(la, pr, tolerance=2)

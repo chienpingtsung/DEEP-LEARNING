@@ -20,17 +20,17 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'{torch.cuda.device_count()} cuda device available.')
 print(f'Using {device} device.')
 
-batch_size = 32
+batch_size = 12
 writer = SummaryWriter()
 
 trainset = MaskFolder('/home/chienping/JupyterLab/datasets/04v2crack/train/',
                       transform=Compose([
-                          Resize(512),
+                          Resize((512, 512)),
                           ToTensor()
                       ]))
 testset = MaskFolder('/home/chienping/JupyterLab/datasets/04v2crack/val/',
                      transform=Compose([
-                         Resize(512),
+                         Resize((512, 512)),
                          ToTensor()
                      ]))
 trainloader = DataLoader(trainset,

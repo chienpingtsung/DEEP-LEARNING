@@ -6,7 +6,6 @@ from torch import nn
 from torch.nn.parallel.data_parallel import DataParallel
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torchvision import transforms
 from tqdm import tqdm
 
 from datasets.folder import MaskFolder
@@ -14,6 +13,7 @@ from losses.focalloss import FocalLoss
 from models.unet import UNet
 from test import test
 from transforms.translate import ToTensor
+from transforms.utils import Compose
 from transforms.vision import Resize
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -24,12 +24,12 @@ batch_size = 32
 writer = SummaryWriter()
 
 trainset = MaskFolder('/home/chienping/JupyterLab/datasets/04v2crack/train/',
-                      transform=transforms.Compose([
+                      transform=Compose([
                           Resize(512),
                           ToTensor()
                       ]))
 testset = MaskFolder('/home/chienping/JupyterLab/datasets/04v2crack/val/',
-                     transform=transforms.Compose([
+                     transform=Compose([
                          Resize(512),
                          ToTensor()
                      ]))

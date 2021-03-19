@@ -53,7 +53,7 @@ model.to(device)
 
 criterion = FocalLoss()
 optimizer = torch.optim.Adam(model.parameters())
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=10, verbose=True)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, verbose=True)
 
 best_f1 = 0
 best_f1_epoch = 0
@@ -100,7 +100,8 @@ for epoch in count():
     if f1 > best_f1:
         best_f1 = f1
         best_f1_epoch = epoch
+        torch.save(state_dict, Path(writer.log_dir).joinpath('best.pth'))
 
-    if epoch - best_f1_epoch > 20:
+    if epoch - best_f1_epoch > 10:
         writer.add_text('U-Net', f'Best model at epoch {best_f1_epoch}, and F1 {best_f1}.')
         break

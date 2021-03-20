@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from datasets.folder import MaskFolder
-from losses.focalloss import FocalLoss
+from losses.diceloss import DiceLoss
 from models.unet import UNet
 from test import test
 from transforms.translate import ToTensor
@@ -64,7 +64,7 @@ if torch.cuda.device_count() > 1:
     model = nn.DataParallel(model)
 model.to(device)
 
-criterion = FocalLoss()
+criterion = DiceLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, verbose=True)
 

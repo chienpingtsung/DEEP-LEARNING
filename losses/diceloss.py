@@ -1,3 +1,4 @@
+import torch
 from torch import nn, Tensor
 
 
@@ -10,6 +11,7 @@ class DiceLoss(nn.Module):
         :param input: (B, 1, H, W)
         :param target: (B, 1, H, W)
         """
+        input = torch.sigmoid(input)
         B, *_ = target.shape
 
         input = input.view(B, -1)

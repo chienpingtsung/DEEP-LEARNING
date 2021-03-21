@@ -10,8 +10,8 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from datasets.folder import MaskFolder
-from losses.diceloss import DiceLoss
-from models.unet import UNet
+from losses.focalloss import FocalLoss
+from models.seg1 import Seg1
 from test import test
 from transforms.translate import ToTensor
 from transforms.utils import Compose
@@ -57,14 +57,14 @@ testloader = DataLoader(testset,
                         pin_memory=True,
                         drop_last=False)
 
-model = UNet(3, 1)
+model = Seg1(3, 1, width_per_group=4, layers=[3, 4, 6, 3])
 if args.weights:
     model.load_state_dict(torch.load(args.weights))
 if torch.cuda.device_count() > 1:
     model = nn.DataParallel(model)
 model.to(device)
 
-criterion = DiceLoss()
+criterion = FocalLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, verbose=True)
 

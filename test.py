@@ -50,6 +50,7 @@ def test(model, dataloader, device, threshold=0.5, save_to: Path = None):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size', default=24, type=int)
+    parser.add_argument('--threshold', default=0.5, type=float)
     parser.add_argument('--dataset', required=True)
     parser.add_argument('--weights', required=True)
     args = parser.parse_args()
@@ -80,9 +81,8 @@ if __name__ == '__main__':
         model = nn.DataParallel(model)
     model.to(device)
 
-    for thr in [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]:
-        prec, reca, f1 = test(model,
-                              tqdm(testloader, desc=f'Testing threshold {thr}'),
-                              device,
-                              threshold=thr)
-        print(f'Threshold {thr}. Precision {prec}. Recall {reca}. F1 {f1}.')
+    prec, reca, f1 = test(model,
+                          tqdm(testloader, desc=f'Testing threshold {args.threshold}'),
+                          device,
+                          threshold=args.threshold)
+    print(f'Precision {prec}. Recall {reca}. F1 {f1}.')

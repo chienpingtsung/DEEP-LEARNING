@@ -1,11 +1,20 @@
+import argparse
 from pathlib import Path
 
 import torch
+from torch import nn
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
+from datasets.folder import MaskFolder
+from models.unet import UNet
+from transforms.translate import ToTensor
+from transforms.utils import Compose
+from transforms.vision import Resize
 from utils.evaluate import calc_confusion_matrix
 
 
-def test(model, dataloader, device, save_to: Path = None):
+def test(model, dataloader, device, threshold=0.5, save_to: Path = None):
     if save_to:
         save_to.mkdir(parents=True, exist_ok=True)
 
@@ -19,7 +28,7 @@ def test(model, dataloader, device, save_to: Path = None):
 
             output = model(image)
             output = torch.sigmoid(output)
-            pred = torch.squeeze(output) > 0.5
+            pred = torch.squeeze(output) > threshold
 
             label = torch.squeeze(label).numpy().astype(bool)
             pred = pred.cpu().numpy()
@@ -36,3 +45,44 @@ def test(model, dataloader, device, save_to: Path = None):
     f1 = (2 * prec * reca) / (prec + reca + infinitesimal)
 
     return prec, reca, f1
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--batch_size', default=24, type=int)
+    parser.add_argument('--dataset', required=True)
+    parser.add_argument('--weights', required=True)
+    args = parser.parse_args()
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'{torch.cuda.device_count()} cuda device available.')
+    print(f'Using {device} device.')
+
+    batch_size = args.batch_size
+    if torch.cuda.device_count() > 1:
+        batch_size *= torch.cuda.device_count()
+
+    testset = MaskFolder(args.dataset,
+                         transform=Compose([
+                             Resize((512, 512)),
+                             ToTensor()
+                         ]))
+    testloader = DataLoader(testset,
+                            batch_size=batch_size,
+                            shuffle=False,
+                            num_workers=batch_size,
+                            pin_memory=True,
+                            drop_last=False)
+
+    model = UNet(3, 1)
+    model.load_state_dict(torch.load(args.weights))
+    if torch.cuda.device_count() > 1:
+        model = nn.DataParallel(model)
+    model.to(device)
+
+    for thr in [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]:
+        prec, reca, f1 = test(model,
+                              tqdm(testloader, desc=f'Testing threshold {thr}'),
+                              device,
+                              threshold=thr)
+        print(f'Threshold {thr}. Precision {prec}. Recall {reca}. F1 {f1}.')

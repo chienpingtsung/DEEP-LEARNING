@@ -97,8 +97,7 @@ for epoch in count(args.start_epoch):
 
     prec, reca, f1 = test(model,
                           tqdm(testloader, desc=f'Testing epoch {epoch}'),
-                          device,
-                          Path(writer.log_dir).joinpath(f'test/{epoch}/'))
+                          device)
 
     writer.add_scalar('test/Precision', prec, epoch)
     writer.add_scalar('test/Recall', reca, epoch)

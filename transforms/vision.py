@@ -1,8 +1,11 @@
 import random
+from typing import Tuple
 
 import torch
 from PIL import Image
+from torch import Tensor
 from torchvision.transforms import functional
+from torchvision.transforms.transforms import _setup_size
 
 
 class Resize:
@@ -59,3 +62,34 @@ class RandomVerticalFlip:
                 rst.append(functional.vflip(pic))
             return rst
         return args
+
+
+class RandomCrop:
+    def __init__(self, size):
+        self.size = tuple(_setup_size(size, error_msg="Please provide only two dimensions (h, w) for size."))
+
+    @staticmethod
+    def get_params(img: Tensor, output_size: Tuple[int, int]) -> Tuple[int, int, int, int]:
+        w, h = functional._get_image_size(img)
+        th, tw = output_size
+
+        if h + 1 < th or w + 1 < tw:
+            raise ValueError(
+                "Required crop size {} is larger then input image size {}".format((th, tw), (h, w))
+            )
+
+        if w == tw and h == th:
+            return 0, 0, h, w
+
+        i = torch.randint(0, h - th + 1, size=(1,)).item()
+        j = torch.randint(0, w - tw + 1, size=(1,)).item()
+        return i, j, th, tw
+
+    def __call__(self, *args):
+        image, *_ = args
+        i, j, h, w = self.get_params(image, self.size)
+
+        rst = []
+        for pic in args:
+            rst.append(functional.crop(pic, i, j, h, w))
+        return rst

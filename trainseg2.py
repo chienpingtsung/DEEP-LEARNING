@@ -12,7 +12,7 @@ from tqdm import tqdm
 from datasets.folder import MultiMaskFolder
 from losses.focalloss import FocalLoss
 from models.seg2 import Seg2
-from tests.testseg2 import test
+from testseg2 import test
 from transforms.translate import ToTensor
 from transforms.utils import Compose
 from transforms.vision import RandomRotation, RandomHorizontalFlip, RandomVerticalFlip, Dilation

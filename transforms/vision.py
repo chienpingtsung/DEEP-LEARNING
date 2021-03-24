@@ -2,7 +2,7 @@ import random
 from typing import Tuple
 
 import torch
-from PIL import Image
+from PIL import Image, ImageFilter
 from torch import Tensor
 from torchvision.transforms import functional
 from torchvision.transforms.transforms import _setup_size
@@ -93,3 +93,11 @@ class RandomCrop:
         for pic in args:
             rst.append(functional.crop(pic, i, j, h, w))
         return rst
+
+
+class Dilation:
+    def __init__(self, size=3):
+        self.size = size
+
+    def __call__(self, pic):
+        return pic.filter(ImageFilter.MaxFilter(self.size))

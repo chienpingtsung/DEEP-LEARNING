@@ -2,7 +2,6 @@ from pathlib import Path
 
 import torch
 from PIL import Image
-from torchvision.transforms import ToPILImage
 from tqdm import tqdm
 
 from transforms.translate import ToTensor
@@ -24,7 +23,6 @@ def test(model,
     tile = Tile(512, 512)
     detile = Detile()
     totensor = ToTensor()
-    topilimage = ToPILImage('1')
 
     model.eval()
 
@@ -59,23 +57,24 @@ def test(model,
                 edge_pred = torch.squeeze(edge_output) > threshold
                 merge_pred = torch.squeeze(merge_output) > threshold
 
-                seg_pred = topilimage(seg_pred)
-                edge_pred = topilimage(edge_pred)
-                merge_pred = topilimage(merge_pred)
-                seg_preds.append(seg_pred)
-                edge_preds.append(edge_pred)
-                merge_preds.append(merge_pred)
+                seg_pred = seg_pred.cpu().numpy().astype(bool)
+                edge_pred = edge_pred.cpu().numpy().astype(bool)
+                merge_pred = merge_pred.cpu().numpy().astype(bool)
+                for i in range(len(seg_pred)):
+                    seg_preds.append(Image.fromarray(seg_pred[i], '1'))
+                    edge_preds.append(Image.fromarray(edge_pred[i], '1'))
+                    merge_preds.append(Image.fromarray(merge_pred[i], '1'))
 
             seg_pred = detile(seg_preds, (1800, 900), (512 * 2 - 900) // 2, (512 * 4 - 1800) // 2)
             edge_pred = detile(edge_preds, (1800, 900), (512 * 2 - 900) // 2, (512 * 4 - 1800) // 2)
             merge_pred = detile(merge_preds, (1800, 900), (512 * 2 - 900) // 2, (512 * 4 - 1800) // 2)
 
-            seg_pred = totensor(seg_pred).numpy().astype(bool)
-            edge_pred = totensor(edge_pred).numpy().astype(bool)
-            merge_pred = totensor(merge_pred).numpy().astype(bool)
+            seg_pred = torch.squeeze(totensor(seg_pred)[0]).numpy().astype(bool)
+            edge_pred = torch.squeeze(totensor(edge_pred)[0]).numpy().astype(bool)
+            merge_pred = torch.squeeze(totensor(merge_pred)[0]).numpy().astype(bool)
 
-            label1 = totensor(label1).numpy().astype(bool)
-            label2 = totensor(label2).numpy().astype(bool)
+            label1 = torch.squeeze(totensor(label1)[0]).numpy().astype(bool)
+            label2 = torch.squeeze(totensor(label2)[0]).numpy().astype(bool)
 
             seg_p_TP, seg_p_TPFP, seg_r_TP, seg_r_TPFN = calc_confusion_matrix(label1, seg_pred, tolerance=2)
             edge_p_TP, edge_p_TPFP, edge_r_TP, edge_r_TPFN = calc_confusion_matrix(label2, edge_pred, tolerance=2)

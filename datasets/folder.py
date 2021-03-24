@@ -8,7 +8,8 @@ from torch.utils.data import Dataset
 class MaskFolder(Dataset):
     def __init__(self,
                  root: str,
-                 transform: Optional[Callable] = None):
+                 transform: Optional[Callable] = None,
+                 label_transform: Optional[Callable] = None):
         """
         The directory should be organized as following tree, and match each stem of images and labels.
         .
@@ -37,6 +38,7 @@ class MaskFolder(Dataset):
         self.stems = list(self.stems)
 
         self.transform = transform
+        self.label_transform = label_transform
 
     def __len__(self):
         return len(self.stems)
@@ -45,6 +47,8 @@ class MaskFolder(Dataset):
         image = Image.open(self.image_path.joinpath(f'{self.stems[item]}.png'))
         label = Image.open(self.label_path.joinpath(f'{self.stems[item]}.png'))
 
+        if self.label_transform:
+            label = self.label_transform(label)
         if self.transform:
             image, label = self.transform(image, label)
 
@@ -54,7 +58,9 @@ class MaskFolder(Dataset):
 class MultiMaskFolder(Dataset):
     def __init__(self,
                  root: str,
-                 transform: Optional[Callable] = None):
+                 transform: Optional[Callable] = None,
+                 label1_transform: Optional[Callable] = None,
+                 label2_transform: Optional[Callable] = None):
         super(MultiMaskFolder, self).__init__()
 
         self.image_path = Path(root).joinpath('images/')
@@ -69,6 +75,8 @@ class MultiMaskFolder(Dataset):
         self.stems = list(self.stems)
 
         self.transform = transform
+        self.label1_transform = label1_transform
+        self.label2_transform = label2_transform
 
     def __len__(self):
         return len(self.stems)
@@ -78,6 +86,10 @@ class MultiMaskFolder(Dataset):
         label1 = Image.open(self.label1_path.joinpath(f'{self.stems[item]}.png'))
         label2 = Image.open(self.label2_path.joinpath(f'{self.stems[item]}.png'))
 
+        if self.label1_transform:
+            label1 = self.label1_transform(label1)
+        if self.label2_transform:
+            label2 = self.label2_transform(label2)
         if self.transform:
             image, label1, label2 = self.transform(image, label1, label2)
 

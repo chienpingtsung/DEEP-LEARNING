@@ -1,5 +1,6 @@
 import random
 
+import torch
 from PIL import Image
 from torchvision.transforms import functional
 
@@ -32,3 +33,29 @@ class RandomRotation:
         for pic in args:
             rst.append(functional.rotate(pic, angle, self.resample, self.expand, self.center, self.fill))
         return rst
+
+
+class RandomHorizontalFlip:
+    def __init__(self, p=0.5):
+        self.p = p
+
+    def __call__(self, *args):
+        if torch.rand(1) < self.p:
+            rst = []
+            for pic in args:
+                rst.append(functional.hflip(pic))
+            return rst
+        return args
+
+
+class RandomVerticalFlip:
+    def __init__(self, p=0.5):
+        self.p = p
+
+    def __call__(self, *args):
+        if torch.rand(1) < self.p:
+            rst = []
+            for pic in args:
+                rst.append(functional.vflip(pic))
+            return rst
+        return args

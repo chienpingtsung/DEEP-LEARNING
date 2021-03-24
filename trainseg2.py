@@ -7,6 +7,7 @@ from torch import nn
 from torch.nn.parallel.data_parallel import DataParallel
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 from datasets.folder import MultiMaskFolder
 from losses.focalloss import FocalLoss
@@ -62,36 +63,36 @@ best_f1 = 0
 best_f1_epoch = 0
 
 for epoch in count(args.start_epoch):
-    # model.train()
-    # total_loss = 0
-    # propagation_counter = 0
-    # tq = tqdm(trainloader)
-    # for image, label1, label2 in tq:
-    #     image = image.to(device)
-    #     label1 = label1.to(device)
-    #     label2 = label2.to(device)
-    #
-    #     seg_output, edge_output, merge_output = model(image)
-    #     seg_loss = criterion(seg_output, label1)
-    #     edge_loss = criterion(edge_output, label2)
-    #     merge_loss = criterion(merge_output, label1)
-    #
-    #     loss = seg_loss + edge_loss + merge_loss
-    #
-    #     optimizer.zero_grad()
-    #     loss.backward()
-    #     optimizer.step()
-    #
-    #     total_loss += loss.item()
-    #     propagation_counter += 1
-    #     tq.set_description(f'Training epoch {epoch}, loss {loss.item()}')
-    #     writer.add_scalar('train/loss', loss.item(), epoch)
-    #     writer.add_scalar('train/seg_loss', seg_loss.item(), epoch)
-    #     writer.add_scalar('train/edge_loss', edge_loss.item(), epoch)
-    #     writer.add_scalar('train/merge_loss', merge_loss.item(), epoch)
-    #
-    # scheduler.step(total_loss / propagation_counter)
-    # writer.add_scalar('train/mean_loss', total_loss / propagation_counter, epoch)
+    model.train()
+    total_loss = 0
+    propagation_counter = 0
+    tq = tqdm(trainloader)
+    for image, label1, label2 in tq:
+        image = image.to(device)
+        label1 = label1.to(device)
+        label2 = label2.to(device)
+
+        seg_output, edge_output, merge_output = model(image)
+        seg_loss = criterion(seg_output, label1)
+        edge_loss = criterion(edge_output, label2)
+        merge_loss = criterion(merge_output, label1)
+
+        loss = seg_loss + edge_loss + merge_loss
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item()
+        propagation_counter += 1
+        tq.set_description(f'Training epoch {epoch}, loss {loss.item()}')
+        writer.add_scalar('train/loss', loss.item(), epoch)
+        writer.add_scalar('train/seg_loss', seg_loss.item(), epoch)
+        writer.add_scalar('train/edge_loss', edge_loss.item(), epoch)
+        writer.add_scalar('train/merge_loss', merge_loss.item(), epoch)
+
+    scheduler.step(total_loss / propagation_counter)
+    writer.add_scalar('train/mean_loss', total_loss / propagation_counter, epoch)
 
     seg_prec, seg_reca, seg_f1, \
     edge_prec, edge_reca, edge_f1, \

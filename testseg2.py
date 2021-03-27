@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import torch
 from PIL import Image
 from tqdm import tqdm
@@ -57,13 +58,13 @@ def test(model,
                 edge_pred = torch.squeeze(edge_output) > threshold
                 merge_pred = torch.squeeze(merge_output) > threshold
 
-                seg_pred = seg_pred.cpu().numpy().astype(bool)
-                edge_pred = edge_pred.cpu().numpy().astype(bool)
-                merge_pred = merge_pred.cpu().numpy().astype(bool)
+                seg_pred = seg_pred.cpu().numpy().astype(np.uint8) * 255
+                edge_pred = edge_pred.cpu().numpy().astype(np.uint8) * 255
+                merge_pred = merge_pred.cpu().numpy().astype(np.uint8) * 255
                 for i in range(len(seg_pred)):
-                    seg_preds.append(Image.fromarray(seg_pred[i], '1'))
-                    edge_preds.append(Image.fromarray(edge_pred[i], '1'))
-                    merge_preds.append(Image.fromarray(merge_pred[i], '1'))
+                    seg_preds.append(Image.fromarray(seg_pred[i], 'L').convert('1'))
+                    edge_preds.append(Image.fromarray(edge_pred[i], 'L').convert('1'))
+                    merge_preds.append(Image.fromarray(merge_pred[i], 'L').convert('1'))
 
             seg_pred = detile(seg_preds, (1800, 900), (512 * 2 - 900) // 2, (512 * 4 - 1800) // 2)
             edge_pred = detile(edge_preds, (1800, 900), (512 * 2 - 900) // 2, (512 * 4 - 1800) // 2)

@@ -40,7 +40,8 @@ trainset = MultiMaskFolder('/home/chienping/JupyterLab/datasets/07v2crack/train/
                                               RandomRotation(0, 360, expand=True),
                                               RandomCrop((512, 512)),
                                               ToTensor()]),
-                           label1_transform=Dilation(3))
+                           label1_transform=Dilation(3),
+                           label2_transform=Dilation(3))
 trainloader = DataLoader(trainset,
                          batch_size=batch_size,
                          shuffle=True,
@@ -126,6 +127,6 @@ for epoch in count(args.start_epoch):
         best_f1_epoch = epoch
         torch.save(state_dict, Path(writer.log_dir).joinpath('best.pth'))
 
-    if epoch - best_f1_epoch > 10:
+    if epoch - best_f1_epoch > 20:
         writer.add_text('U-Net', f'Best model at epoch {best_f1_epoch}, and F1 {best_f1}.')
         break

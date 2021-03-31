@@ -21,6 +21,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size', default=12, type=int)
 parser.add_argument('--log_dir')
 parser.add_argument('--weights')
+parser.add_argument('--train_backbone', default=True, type=bool)
+parser.add_argument('--train_seg', default=True, type=bool)
+parser.add_argument('--train_edge', default=True, type=bool)
+parser.add_argument('--train_merge', default=True, type=bool)
 parser.add_argument('--lr', default=1e-3, type=float)
 parser.add_argument('--start_epoch', default=0, type=int)
 args = parser.parse_args()
@@ -57,7 +61,25 @@ if torch.cuda.device_count() > 1:
 model.to(device)
 
 criterion = FocalLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+for p in model.parameters():
+    p.requires_grad = False
+if args.train_backbone:
+    for k, v in model.named_parameters():
+        if k.startswith(('cont', 'maxpool', 'bottleneck')):
+            v.requires_grad = True
+if args.train_seg:
+    for k, v in model.named_parameters():
+        if k.startswith('seg_'):
+            v.requires_grad = True
+if args.train_edge:
+    for k, v in model.named_parameters():
+        if k.startswith('edge_'):
+            v.requires_grad = True
+if args.train_merge:
+    for k, v in model.named_parameters():
+        if k.startswith('merge_'):
+            v.requires_grad = True
+optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, verbose=True)
 
 best_f1 = 0
@@ -78,7 +100,13 @@ for epoch in count(args.start_epoch):
         edge_loss = criterion(edge_output, label2)
         merge_loss = criterion(merge_output, label1)
 
-        loss = seg_loss + edge_loss + merge_loss
+        loss = 0
+        if args.train_seg:
+            loss += seg_loss
+        if args.train_edge:
+            loss += edge_loss
+        if args.train_merge:
+            loss += merge_loss
 
         optimizer.zero_grad()
         loss.backward()
@@ -122,8 +150,13 @@ for epoch in count(args.start_epoch):
         state_dict = model.state_dict()
     torch.save(state_dict, Path(writer.log_dir).joinpath('last.pth'))
 
-    if merge_f1 > best_f1:
-        best_f1 = merge_f1
+    eval_f1 = seg_f1
+    if args.train_edge:
+        eval_f1 = edge_f1
+    if args.train_merge:
+        eval_f1 = merge_f1
+    if eval_f1 > best_f1:
+        best_f1 = eval_f1
         best_f1_epoch = epoch
         torch.save(state_dict, Path(writer.log_dir).joinpath('best.pth'))
 

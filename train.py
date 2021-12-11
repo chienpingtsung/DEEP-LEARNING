@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from datasets.folder import MaskFolder
 from losses.focalloss import FocalLoss
-from models.seg1 import Seg1
+from models.unet import UNet
 from test import test
 from transforms.translate import ToTensor
 from transforms.utils import Compose
@@ -57,7 +57,7 @@ testloader = DataLoader(testset,
                         pin_memory=True,
                         drop_last=False)
 
-model = Seg1(3, 1, width_per_group=4, layers=[3, 4, 6, 3])
+model = UNet(3, 1)
 if args.weights:
     model.load_state_dict(torch.load(args.weights))
 if torch.cuda.device_count() > 1:

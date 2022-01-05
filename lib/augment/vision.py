@@ -1,5 +1,6 @@
 import random
 
+from PIL import ImageFilter
 from torchvision.transforms import functional
 
 
@@ -32,6 +33,7 @@ class RandomHorizontalFlip:
     def __call__(self, *args):
         if random.random() < self.p:
             return tuple(functional.hflip(img) for img in args)
+        return args
 
 
 class RandomVerticalFlip:
@@ -41,3 +43,23 @@ class RandomVerticalFlip:
     def __call__(self, *args):
         if random.random() < self.p:
             return tuple(functional.vflip(img) for img in args)
+        return args
+
+
+class DivisiblePad:
+    def __int__(self, base=16):
+        self.base = base
+
+    def __call__(self, img):
+        w, h = img.size
+        right = self.base - w % self.base if w % self.base else 0
+        bottom = self.base - h % self.base if h % self.base else 0
+        return functional.pad(img, [0, 0, right, bottom])
+
+
+class Dilation:
+    def __init__(self, size=3):
+        self.size = size
+
+    def __call__(self, img):
+        return img.filter(ImageFilter.MaxFilter(self.size))

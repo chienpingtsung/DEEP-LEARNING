@@ -26,6 +26,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--threshold', default=0.5, type=float)
     parser.add_argument('-b', '--batchsize', default=12, type=int)
     parser.add_argument('-d', '--dilation', default=3, type=int)
+    parser.add_argument('-s', '--scout', default=10, type=int)
     parser.add_argument('--trainset', required=True)
     parser.add_argument('--testset', required=True)
     args = parser.parse_args()
@@ -95,20 +96,16 @@ if __name__ == '__main__':
 
         snapshot = {'model': model.module.state_dict() if isinstance(model, nn.DataParallel) else model.state_dict(),
                     'optim': optimizer.state_dict(),
-                    'best_f1': best_f1}
+                    'best_f1': f1 if f1 > best_f1 else best_f1,
+                    'best_f1_epoch': epoch if f1 > best_f1 else best_f1_epoch,
+                    'epoch': epoch}
+        torch.save(snapshot, Path(writer.log_dir).joinpath('last.pth'))
 
+        if f1 > best_f1:
+            best_f1 = f1
+            best_f1_epoch = epoch
+            torch.save(snapshot, Path(writer.log_dir).joinpath('best.pth'))
 
-    if isinstance(model, DataParallel):
-        state_dict = model.module.state_dict()
-    else:
-        state_dict = model.state_dict()
-    torch.save(state_dict, Path(writer.log_dir).joinpath('last.pth'))
-
-    if f1 > best_f1:
-        best_f1 = f1
-        best_f1_epoch = epoch
-        torch.save(state_dict, Path(writer.log_dir).joinpath('best.pth'))
-
-    if epoch - best_f1_epoch > 10:
-        writer.add_text('U-Net', f'Best model at epoch {best_f1_epoch}, and F1 {best_f1}.')
-        break
+        if epoch - best_f1_epoch > args.scout:
+            writer.add_text('U-Net', f'Best model at epoch {best_f1_epoch}, and F1 {best_f1}.')
+            break

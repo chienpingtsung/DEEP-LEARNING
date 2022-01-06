@@ -5,92 +5,81 @@ from PIL import Image
 from torch.utils.data import Dataset
 
 
-class MaskFolder(Dataset):
+class ImageMaskFolder(Dataset):
     def __init__(self,
                  root: str,
+                 transforms: Optional[Callable] = None,
                  transform: Optional[Callable] = None,
-                 label_transform: Optional[Callable] = None):
+                 target_transform: Optional[Callable] = None):
         """
-        The directory should be organized as following tree, and match each stem of images and labels.
+        The directory should be organized as following tree, and match each stem of images and masks.
         .
         ├── images
         │   ├── 0.png
         │   ├── 1.png
         │   ├── 2.png
         │   └── ...
-        └── labels
+        └── masks
             ├── 0.png
             ├── 1.png
             ├── 2.png
             └── ...
-
-        :param root: Path to the dataset.
-        :param transform: Transforms for data augmentation.
         """
-        super(MaskFolder, self).__init__()
+        super(ImageMaskFolder, self).__init__()
 
-        self.image_path = Path(root).joinpath('images/')
-        self.label_path = Path(root).joinpath('labels/')
+        self.image_path = Path(root).joinpath('image/')
+        self.mask_path = Path(root).joinpath('mask/')
 
-        self.stems = {p.stem for p in self.image_path.glob('*.png')}
-        assert not self.stems ^ {p.stem for p in self.label_path.glob('*.png')}, \
-            'Missing file for matching images and labels.'
-        self.stems = list(self.stems)
+        image_stems = {p.stem for p in self.image_path.glob('*.png')}
+        mask_stems = {p.stem for p in self.mask_path.glob('*.png')}
+        assert not image_stems - mask_stems, f'Missing masks of images: {image_stems - mask_stems}.'
+        assert not mask_stems - image_stems, f'Missing images of masks: {mask_stems - image_stems}.'
+        self.stems = list(image_stems)
 
+        self.transforms = transforms
         self.transform = transform
-        self.label_transform = label_transform
+        self.target_transform = target_transform
 
     def __len__(self):
         return len(self.stems)
 
     def __getitem__(self, item):
-        image = Image.open(self.image_path.joinpath(f'{self.stems[item]}.png'))
-        label = Image.open(self.label_path.joinpath(f'{self.stems[item]}.png'))
+        stem = self.stems[item]
+        image = Image.open(self.image_path.joinpath(f'{stem}.png'))
+        mask = Image.open(self.mask_path.joinpath(f'{stem}.png'))
+        size = image.size
 
-        if self.label_transform:
-            label = self.label_transform(label)
+        if self.transforms:
+            image, mask = self.transforms(image, mask)
         if self.transform:
-            image, label = self.transform(image, label)
+            image = self.transform(image)
+        if self.target_transform:
+            mask = self.target_transform(mask)
 
-        return image, label
+        return image, mask, stem, size
 
 
-class MultiMaskFolder(Dataset):
+class ImageFolder(Dataset):
     def __init__(self,
                  root: str,
-                 transform: Optional[Callable] = None,
-                 label1_transform: Optional[Callable] = None,
-                 label2_transform: Optional[Callable] = None):
-        super(MultiMaskFolder, self).__init__()
+                 transform: Optional[Callable] = None):
+        super(ImageFolder, self).__init__()
 
-        self.image_path = Path(root).joinpath('images/')
-        self.label1_path = Path(root).joinpath('labels1/')
-        self.label2_path = Path(root).joinpath('labels2/')
+        self.image_path = Path(root)
 
-        self.stems = {p.stem for p in self.image_path.glob('*.png')}
-        assert not self.stems ^ {p.stem for p in self.label1_path.glob('*.png')}, \
-            'Missing file for matching images and labels1.'
-        assert not self.stems ^ {p.stem for p in self.label2_path.glob('*.png')}, \
-            'Missing file for matching images and labels2.'
-        self.stems = list(self.stems)
+        self.stems = list(p.stem for p in self.image_path.glob('*.png'))
 
         self.transform = transform
-        self.label1_transform = label1_transform
-        self.label2_transform = label2_transform
 
     def __len__(self):
         return len(self.stems)
 
     def __getitem__(self, item):
-        image = Image.open(self.image_path.joinpath(f'{self.stems[item]}.png'))
-        label1 = Image.open(self.label1_path.joinpath(f'{self.stems[item]}.png'))
-        label2 = Image.open(self.label2_path.joinpath(f'{self.stems[item]}.png'))
+        stem = self.stems[item]
+        image = Image.open(self.image_path.joinpath(f'{stem}.png'))
+        size = image.size
 
-        if self.label1_transform:
-            label1 = self.label1_transform(label1)
-        if self.label2_transform:
-            label2 = self.label2_transform(label2)
         if self.transform:
-            image, label1, label2 = self.transform(image, label1, label2)
+            image = self.transform(image)
 
-        return image, label1, label2
+        return image, stem, size

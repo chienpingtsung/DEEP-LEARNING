@@ -2,107 +2,101 @@ import argparse
 from itertools import count
 from pathlib import Path
 
+import numpy as np
 import torch
 from torch import nn
-from torch.nn.parallel.data_parallel import DataParallel
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torchvision.transforms import ToTensor, Compose
 from tqdm import tqdm
 
-from datasets.folder import MaskFolder
-from losses.focalloss import FocalLoss
-from models.unet import UNet
+from lib.augment.common import Compose as myCompose
+from lib.augment.vision import RandomCrop, RandomRotation, RandomHorizontalFlip, RandomVerticalFlip, Dilation, \
+    DivisiblePad
+from lib.dataset.folder import ImageMaskFolder
+from lib.loss.focalloss import FocalLoss
+from lib.model.unet import UNet
+from lib.util.common import get_device
 from test import test
-from transforms.translate import ToTensor
-from transforms.utils import Compose
-from transforms.vision import Resize
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--batch_size', default=12, type=int)
-parser.add_argument('--log_dir')
-parser.add_argument('--weights')
-parser.add_argument('--lr', default=1e-3, type=float)
-parser.add_argument('--start_epoch', default=0, type=int)
-args = parser.parse_args()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-w', '--weight')
+    parser.add_argument('-l', '--logdir')
+    parser.add_argument('-t', '--threshold', default=0.5, type=float)
+    parser.add_argument('-b', '--batchsize', default=12, type=int)
+    parser.add_argument('-d', '--dilation', default=3, type=int)
+    parser.add_argument('--trainset', required=True)
+    parser.add_argument('--testset', required=True)
+    args = parser.parse_args()
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f'{torch.cuda.device_count()} cuda device available.')
-print(f'Using {device} device.')
+    device = get_device()
 
-batch_size = args.batch_size
-if torch.cuda.device_count() > 1:
-    batch_size *= torch.cuda.device_count()
-writer = SummaryWriter(args.log_dir)
+    args.batchsize *= torch.cuda.device_count() if torch.cuda.is_available() else 1
 
-trainset = MaskFolder('/home/chienping/JupyterLab/datasets/04v2crack/train/',
-                      transform=Compose([
-                          Resize((512, 512)),
-                          ToTensor()
-                      ]))
-testset = MaskFolder('/home/chienping/JupyterLab/datasets/04v2crack/val/',
-                     transform=Compose([
-                         Resize((512, 512)),
-                         ToTensor()
-                     ]))
-trainloader = DataLoader(trainset,
-                         batch_size=batch_size,
-                         shuffle=True,
-                         num_workers=batch_size,
-                         pin_memory=True,
-                         drop_last=True)
-testloader = DataLoader(testset,
-                        batch_size=batch_size * 2,
-                        shuffle=False,
-                        num_workers=batch_size,
-                        pin_memory=True,
-                        drop_last=False)
+    writer = SummaryWriter(args.logdir)
 
-model = UNet(3, 1)
-if args.weights:
-    model.load_state_dict(torch.load(args.weights))
-if torch.cuda.device_count() > 1:
-    model = nn.DataParallel(model)
-model.to(device)
+    trainset = ImageMaskFolder(args.trainset,
+                               transforms=myCompose([RandomCrop((512, 512)),
+                                                     RandomRotation(range(0, 360, 90)),
+                                                     RandomHorizontalFlip(),
+                                                     RandomVerticalFlip()]),
+                               transform=Compose([ToTensor()]),
+                               target_transform=Compose([Dilation(args.dilation),
+                                                         ToTensor()]))
+    testset = ImageMaskFolder(args.testset,
+                              transform=Compose([DivisiblePad(),
+                                                 ToTensor()]),
+                              target_transform=Compose([np.asarray]))
+    trainloader = DataLoader(trainset,
+                             batch_size=args.batchsize,
+                             shuffle=True,
+                             num_workers=args.batchsize,
+                             pin_memory=True,
+                             drop_last=True)
+    testloader = DataLoader(testset, pin_memory=True)
 
-criterion = FocalLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, verbose=True)
+    snapshot = torch.load(args.weight) if args.weight else None
 
-best_f1 = 0
-best_f1_epoch = 0
+    model = UNet(3, 1)
+    if snapshot:
+        model.load_state_dict(snapshot['model'])
+    if torch.cuda.device_count() > 1:
+        model = nn.DataParallel(model)
+    model.to(device)
 
-for epoch in count(args.start_epoch):
-    model.train()
-    total_loss = 0
-    propagation_counter = 0
-    tq = tqdm(trainloader)
-    for image, label in tq:
-        image = image.to(device)
-        label = label.to(device)
+    criterion = FocalLoss()
+    optimizer = torch.optim.Adam(model.parameters())
+    if snapshot:
+        optimizer.load_state_dict(snapshot['optim'])
 
-        output = model(image)
-        loss = criterion(output, label)
+    best_f1 = snapshot['best_f1'] if snapshot else 0
+    best_f1_epoch = snapshot['best_f1_epoch'] if snapshot else 0
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+    for epoch in count(snapshot['epoch'] + 1 if snapshot else 0):
+        model.train()
+        tq = tqdm(trainloader)
+        for image, mask, *_ in tq:
+            output = model(image.to(device))
+            loss = criterion(output, mask.to(device))
 
-        total_loss += loss.item()
-        propagation_counter += 1
-        tq.set_description(f'Training epoch {epoch}, loss {loss.item()}')
-        writer.add_scalar('train/loss', loss.item(), epoch)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-    scheduler.step(total_loss / propagation_counter)
-    writer.add_scalar('train/mean_loss', total_loss / propagation_counter, epoch)
+            tq.set_description(f'Training epoch {epoch}, loss {loss.item()}')
+            writer.add_scalar('train/loss', loss.item(), epoch)
 
-    prec, reca, f1 = test(model,
-                          tqdm(testloader, desc=f'Testing epoch {epoch}'),
-                          device)
+        prec, reca, f1 = test(model, tqdm(testset), device, threshold=args.threshold,
+                              save_to=Path(writer.log_dir).joinpath(f'test/{epoch}/'))
+        writer.add_scalar('test/Precision', prec, epoch)
+        writer.add_scalar('test/Recall', reca, epoch)
+        writer.add_scalar('test/F1', f1, epoch)
 
-    writer.add_scalar('test/Precision', prec, epoch)
-    writer.add_scalar('test/Recall', reca, epoch)
-    writer.add_scalar('test/F1', f1, epoch)
-    print(f'Epoch {epoch}. Precision {prec}. Recall {reca}. F1 {f1}.')
+        snapshot = {'model': model.module.state_dict() if isinstance(model, nn.DataParallel) else model.state_dict(),
+                    'optim': optimizer.state_dict(),
+                    'best_f1': best_f1}
+
 
     if isinstance(model, DataParallel):
         state_dict = model.module.state_dict()

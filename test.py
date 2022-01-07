@@ -24,12 +24,13 @@ def test(model, dataloader, device, threshold=0.5, save_to: str = None):
 
     prec_TP = prec_TPFP = reca_TP = reca_TPFN = 0
 
-    for image, mask, stem, size in dataloader:
+    for image, mask, stem, (w, h) in dataloader:
         with torch.no_grad():
             output = model(image.to(device))
             output = torch.sigmoid(output)
             pred = torch.squeeze(output) > threshold
             pred = pred.cpu().numpy()
+            pred = pred[:h, :w]
 
             p_TP, p_TPFP, r_TP, r_TPFN = calc_confusion_matrix(mask, pred, tolerance=2)
             prec_TP += p_TP

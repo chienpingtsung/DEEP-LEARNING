@@ -32,7 +32,7 @@ def test(model, dataloader, device, threshold=0.5, save_to: str = None):
             pred = pred.cpu().numpy()
             pred = pred[:h, :w]
 
-            p_TP, p_TPFP, r_TP, r_TPFN = calc_confusion_matrix(mask, pred, tolerance=2)
+            p_TP, p_TPFP, r_TP, r_TPFN = calc_confusion_matrix(torch.squeeze(mask), pred, tolerance=2)
             prec_TP += p_TP
             prec_TPFP += p_TPFP
             reca_TP += r_TP

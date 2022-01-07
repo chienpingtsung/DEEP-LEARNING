@@ -47,7 +47,7 @@ class RandomVerticalFlip:
 
 
 class DivisiblePad:
-    def __int__(self, base=16):
+    def __init__(self, base=16):
         self.base = base
 
     def __call__(self, img):

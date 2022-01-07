@@ -24,7 +24,7 @@ if __name__ == '__main__':
     parser.add_argument('-w', '--weight')
     parser.add_argument('-l', '--logdir')
     parser.add_argument('-t', '--threshold', default=0.5, type=float)
-    parser.add_argument('-b', '--batchsize', default=12, type=int)
+    parser.add_argument('-b', '--batchsize', default=8, type=int)
     parser.add_argument('-d', '--dilation', default=3, type=int)
     parser.add_argument('-s', '--scout', default=10, type=int)
     parser.add_argument('--trainset', required=True)
@@ -88,7 +88,7 @@ if __name__ == '__main__':
             tq.set_description(f'Training epoch {epoch}, loss {loss.item()}')
             writer.add_scalar('train/loss', loss.item(), epoch)
 
-        prec, reca, f1 = test(model, tqdm(testset), device, threshold=args.threshold,
+        prec, reca, f1 = test(model, tqdm(testloader), device, threshold=args.threshold,
                               save_to=Path(writer.log_dir).joinpath(f'test/{epoch}/'))
         writer.add_scalar('test/Precision', prec, epoch)
         writer.add_scalar('test/Recall', reca, epoch)

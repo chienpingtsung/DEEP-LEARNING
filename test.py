@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import DataLoader
-from torchvision.transforms import Compose, ToTensor
+from torchvision.transforms import Compose, ToTensor, PILToTensor
 from tqdm import tqdm
 
 from lib.augment.vision import DivisiblePad
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     testset = ImageMaskFolder(args.testset,
                               transform=Compose([DivisiblePad(),
                                                  ToTensor()]),
-                              target_transform=Compose([np.asarray]))
+                              target_transform=Compose([PILToTensor()]))
     testloader = DataLoader(testset, pin_memory=True)
 
     model = UNet(3, 1)

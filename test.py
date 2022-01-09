@@ -32,7 +32,8 @@ def test(model, dataloader, device, threshold=0.5, save_to: str = None):
             pred = pred.cpu().numpy()
             pred = pred[:h, :w]
 
-            p_TP, p_TPFP, r_TP, r_TPFN = calc_confusion_matrix(torch.squeeze(mask), pred, tolerance=2)
+            mask = torch.squeeze(mask).numpy()
+            p_TP, p_TPFP, r_TP, r_TPFN = calc_confusion_matrix(mask, pred, tolerance=2)
             prec_TP += p_TP
             prec_TPFP += p_TPFP
             reca_TP += r_TP
@@ -40,7 +41,7 @@ def test(model, dataloader, device, threshold=0.5, save_to: str = None):
 
             if save_to:
                 pred = pred.astype(np.uint8) * 255
-                Image.fromarray(pred, 'L').convert('1').save(save_to.joinpath(f'{stem}.png'))
+                Image.fromarray(pred, 'L').convert('1').save(save_to.joinpath(f'{stem[0]}.png'))
 
     infinitesimal = 1e-10
     prec = prec_TP / (prec_TPFP + infinitesimal)

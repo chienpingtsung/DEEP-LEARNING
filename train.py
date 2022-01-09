@@ -2,12 +2,11 @@ import argparse
 from itertools import count
 from pathlib import Path
 
-import numpy as np
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torchvision.transforms import ToTensor, Compose
+from torchvision.transforms import ToTensor, Compose, PILToTensor
 from tqdm import tqdm
 
 from lib.augment.common import Compose as myCompose
@@ -48,7 +47,7 @@ if __name__ == '__main__':
     testset = ImageMaskFolder(args.testset,
                               transform=Compose([DivisiblePad(),
                                                  ToTensor()]),
-                              target_transform=Compose([np.asarray]))
+                              target_transform=Compose([PILToTensor()]))
     trainloader = DataLoader(trainset,
                              batch_size=args.batchsize,
                              shuffle=True,
